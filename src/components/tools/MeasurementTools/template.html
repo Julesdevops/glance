@@ -15,16 +15,48 @@
       <div :class="$style.heading">
         <v-layout align-center>
           <v-flex xs10>
-            <span class="body-2">Tool List</span>
+            <span class="body-2">2D Tool List</span>
           </v-flex>
           <v-flex xs6>
             <v-btn-toggle
-              :value="activeToolIndex"
-              @change="toggleActiveTool"
+              :value="active2DToolIndex"
+              @change="toggleActiveTool($event, '2D')"
               :class="$style.toolList"
             >
               <v-tooltip
-                v-for="tool in uiToolList"
+                v-for="tool in uiToolList2D"
+                :key="tool.name"
+                bottom
+              >
+                <template v-slot:activator="{ on }">
+                  <v-btn
+                    small
+                    text
+                    v-on="on"
+                    :class="$style.toolButton"
+                    :disabled="targetPid === -1"
+                  >
+                    <svg-icon :icon="tool.icon" :class="$style.toolIcon" />
+                  </v-btn>
+                </template>
+                {{ tool.name }}
+              </v-tooltip>
+            </v-btn-toggle>
+          </v-flex>
+        </v-layout>
+
+        <v-layout align-center>
+          <v-flex xs10>
+            <span class="body-2">3D Tool List</span>
+          </v-flex>
+          <v-flex xs6>
+            <v-btn-toggle
+              :value="active3DToolIndex"
+              @change="toggleActiveTool($event, '3D')"
+              :class="$style.toolList"
+            >
+              <v-tooltip
+                v-for="tool in uiToolList3D"
                 :key="tool.name"
                 bottom
               >

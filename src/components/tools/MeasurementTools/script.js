@@ -6,34 +6,53 @@ import SourceSelect from 'paraview-glance/src/components/widgets/SourceSelect';
 import SvgIcon from 'paraview-glance/src/components/widgets/SvgIcon';
 import { WIDGETS } from 'paraview-glance/src/palette';
 
-import AngleMeasurementTool from 'paraview-glance/src/components/tools/MeasurementTools/tools/AngleMeasurementTool';
-import RulerMeasurementTool from 'paraview-glance/src/components/tools/MeasurementTools/tools/RulerMeasurementTool';
-import TextAnnotationTool from 'paraview-glance/src/components/tools/MeasurementTools/tools/TextAnnotationTool';
+import AngleMeasurementTool2D from 'paraview-glance/src/components/tools/MeasurementTools/2dtools/AngleMeasurementTool';
+import RulerMeasurementTool2D from 'paraview-glance/src/components/tools/MeasurementTools/2dtools/RulerMeasurementTool';
+import TextAnnotationTool2D from 'paraview-glance/src/components/tools/MeasurementTools/2dtools/TextAnnotationTool';
+
+import AngleMeasurementTool3D from 'paraview-glance/src/components/tools/MeasurementTools/3dtools/AngleMeasurementTool';
+import RulerMeasurementTool3D from 'paraview-glance/src/components/tools/MeasurementTools/3dtools/RulerMeasurementTool';
 
 // ----------------------------------------------------------------------------
 
-const ToolList = [
+const ToolList2D = [
   {
     name: '2D Angle',
     icon: 'angle-tool',
-    component: AngleMeasurementTool,
+    component: AngleMeasurementTool2D,
   },
   {
     name: '2D Ruler',
     icon: 'length-tool',
-    component: RulerMeasurementTool,
+    component: RulerMeasurementTool2D,
   },
   {
     name: '2D Text',
     icon: 'text-tool',
-    component: TextAnnotationTool,
+    component: TextAnnotationTool2D,
+  },
+];
+
+const ToolList3D = [
+  {
+    name: '3D Angle',
+    icon: 'angle-tool',
+    component: AngleMeasurementTool3D,
+  },
+  {
+    name: '3D Ruler',
+    icon: 'length-tool',
+    component: RulerMeasurementTool3D,
   },
 ];
 
 // ----------------------------------------------------------------------------
 
 const ComponentToTool = {};
-ToolList.forEach((tool) => {
+ToolList2D.forEach((tool) => {
+  ComponentToTool[tool.component.name] = tool;
+});
+ToolList3D.forEach((tool) => {
   ComponentToTool[tool.component.name] = tool;
 });
 
@@ -51,9 +70,11 @@ export default {
   inject: ['$notify', 'girderRest'],
   data() {
     return {
-      uiToolList: ToolList,
-      activeToolIndex: undefined,
-      activeToolId: -1,
+      uiToolList2D: ToolList2D,
+      uiToolList3D: ToolList3D,
+      active2DToolIndex: undefined,
+      active3DToolIndex: undefined,
+      activeToolType: undefined,
       targetPid: -1,
       pendingTool: null,
       palette: WIDGETS,
@@ -114,29 +135,49 @@ export default {
     setTargetDataset(sourceId) {
       this.targetPid = sourceId;
     },
-    toggleActiveTool(toolIndex) {
+    toggleActiveTool(toolIndex, toolType) {
+      this.activeToolType = toolType;
       if (this.enabled) {
         if (toolIndex === undefined) {
           this.$emit('enable', false);
         } else {
-          this.removeTool(this.activeToolIndex);
-          this.activeToolIndex = toolIndex;
+          this.removeTool(this.active2DToolIndex);
+          this.removeTool(this.active3DToolIndex);
+
+          if (this.activeToolType === '2D') {
+            this.active2DToolIndex = toolIndex;
+          } else if (this.activeToolType === '3D') {
+            this.active3DToolIndex = toolIndex;
+          }
           this.enableActiveTool();
         }
       } else if (toolIndex !== undefined) {
-        this.activeToolIndex = toolIndex;
+        if (this.activeToolType === '2D') {
+          this.active2DToolIndex = toolIndex;
+        } else if (this.activeToolType === '3D') {
+          this.active3DToolIndex = toolIndex;
+        }
         this.$emit('enable', true);
       }
     },
     enableActiveTool() {
-      if (this.targetPid !== -1 && this.activeToolIndex !== undefined) {
-        this.pendingTool = ToolList[this.activeToolIndex];
+      if (
+        this.targetPid !== -1 &&
+        (this.active2DToolIndex !== undefined ||
+          this.active3DToolIndex !== undefined) &&
+        this.activeToolType !== undefined
+      ) {
+        this.pendingTool =
+          this.activeToolType === '2D'
+            ? ToolList2D[this.active2DToolIndex]
+            : ToolList3D[this.active3DToolIndex];
       }
     },
     clearActiveTool() {
       this.pendingTool = null;
-      this.activeToolIndex = undefined;
-      this.activeToolId = -1;
+      this.active2DToolIndex = undefined;
+      this.active3DToolIndex = undefined;
+      this.activeToolType = undefined;
     },
     removeTool(index) {
       if (this.pendingTool && index === this.tools.length - 1) {

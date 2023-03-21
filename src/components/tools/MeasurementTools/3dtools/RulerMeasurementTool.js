@@ -1,10 +1,10 @@
-import create2DTool, {
+import create3DTool, {
   updateProps,
-} from 'paraview-glance/src/components/tools/MeasurementTools/tools/ToolTemplate2D';
+} from 'paraview-glance/src/components/tools/MeasurementTools/3dtools/ToolTemplate3D';
 
 // ----------------------------------------------------------------------------
 
-const RulerComponent = create2DTool('Ruler', {
+const RulerComponent = create3DTool('Ruler', {
   methods: {
     initialMeasurements() {
       return {

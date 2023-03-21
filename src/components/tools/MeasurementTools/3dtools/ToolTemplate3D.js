@@ -15,7 +15,7 @@ export function updateProps(viewWidget, propsToUpdate) {
 // ----------------------------------------------------------------------------
 
 export default (toolName, extraComponent = {}) => ({
-  name: `${toolName}Tool`,
+  name: `${toolName}Tool3D`,
   props: {
     // should always be a valid proxy id
     targetPid: { required: true },
@@ -24,7 +24,6 @@ export default (toolName, extraComponent = {}) => ({
      * {
      *   name: String,
      *   points[N]: [[xyz], ...],
-     *   lockToSlice: Number|null,
      *   axis: 0|1|2|null,
      *   color: String,
      *   textSize: 12,
@@ -34,9 +33,8 @@ export default (toolName, extraComponent = {}) => ({
   },
   data() {
     return {
-      name: `2D ${toolName}`,
+      name: `3D ${toolName}`,
       finalized: false,
-      lockToSlice: null,
       axis: null,
       widgetPid: -1,
       targetViewId: -1,
@@ -76,37 +74,20 @@ export default (toolName, extraComponent = {}) => ({
       if (proxy && proxy === this.targetRepresentation && this.widgetProxy) {
         if (this.finalized) {
           this.updateWidgetVisibility();
-        } else if (
-          this.initialSlicePlacement !== null &&
-          Math.round(proxy.getSlice()) !== this.initialSlicePlacement
-        ) {
-          this.emitRemove();
-        } else {
-          this.updateOrientation();
         }
       }
-
       if (proxy === this.widgetProxy) {
         const state = this.widgetProxy.getWidgetState();
         const numberOfHandles = state.getHandleList().length;
-        if (
-          numberOfHandles === 1 &&
-          this.targetViewId === -1 &&
-          this.initialSlicePlacement === null
-        ) {
+        if (numberOfHandles === 1 && this.targetViewId === -1) {
           // bind to slice and view
           // assumes mouseFocusedViewId is not -1
           this.targetViewId = this.mouseFocusedViewId;
           // target rep should now exist
-          this.initialSlicePlacement = Math.round(
-            this.targetRepresentation.getSlice()
-          );
           this.constrainPickableViews(this.targetViewId);
         }
 
         if (!this.finalized && this.donePlacing()) {
-          this.lockToSlice = this.initialSlicePlacement;
-          this.axis = this.targetView.getAxis();
           // widget is finalized
           this.finalized = true;
         }
@@ -120,25 +101,22 @@ export default (toolName, extraComponent = {}) => ({
     },
   },
   created() {
-    this.initialSlicePlacement = null;
     this.mouseFocusedViewId = -1;
   },
   mounted() {
     const proxy = this.$proxyManager.createProxy('Widgets', toolName);
     this.widgetPid = proxy.getProxyId();
+    console.log({ proxy });
 
     if (this.toolData) {
-      const { name, lockToSlice, points, color, textSize, axis } =
-        this.toolData;
+      const { name, points, color, textSize } = this.toolData;
       this.name = name;
-      this.lockToSlice = lockToSlice;
       this.color = color;
       this.textSize = textSize;
 
       const view = this.$proxyManager
         .getViews()
-        .filter((v) => v.isA('vtkView2DProxy'))
-        .find((v) => v.getAxis() === axis);
+        .find((v) => v.isA('vtkViewProxy'));
       if (!view) {
         throw new Error('Cannot restore saved data: invalid axis');
       }
@@ -173,17 +151,9 @@ export default (toolName, extraComponent = {}) => ({
       }
 
       const view3dHandler = (view, widgetManager, viewWidget) => {
-        widgetManager.removeWidget(viewWidget);
-      };
-
-      const view2dHandler = (view, widgetManager, viewWidget) => {
+        console.log({ view, widgetManager, viewWidget });
         this.setupViewWidget(viewWidget);
-
-        // start off invisible, unless we have a pre-defined axis
-        viewWidget.setVisibility(this.axis === view.getAxis());
-
-        this.setWidgetColor(viewWidget, this.color);
-        this.setWidgetTextSize(viewWidget, this.textSize);
+        viewWidget.setVisibility(true);
 
         const moveSub = view.getInteractor().onMouseMove(() => {
           if (this.targetViewId !== -1) {
@@ -193,8 +163,6 @@ export default (toolName, extraComponent = {}) => ({
             return;
           }
           this.mouseFocusedViewId = view.getProxyId();
-
-          this.updateOrientation();
 
           if (!viewWidget.getVisibility()) {
             viewWidget.setVisibility(true);
@@ -210,11 +178,16 @@ export default (toolName, extraComponent = {}) => ({
           // higher event listener priority
         }, viewWidget.getPriority() + 1);
 
+        this.setWidgetColor(viewWidget, this.color);
+        this.setWidgetTextSize(viewWidget, this.textSize);
         widgetManager.grabFocus(viewWidget);
-        // re-render widget reps
         widgetManager.enablePicking();
 
         return [moveSub.unsubscribe];
+      };
+
+      const view2dHandler = (view, widgetManager, viewWidget) => {
+        widgetManager.removeWidget(viewWidget);
       };
 
       proxy.addToViews();
@@ -225,47 +198,13 @@ export default (toolName, extraComponent = {}) => ({
         View2D_Z: view2dHandler,
       });
     },
-    updateOrientation() {
-      // view will be a 2D view
-      const view =
-        this.targetView ||
-        this.$proxyManager.getProxyById(this.mouseFocusedViewId);
-
-      const rep = this.$proxyManager.getRepresentation(this.targetProxy, view);
-      const slice = Math.round(rep.getSlice());
-      const axis = view.getAxis();
-
-      const manipulator = this.widgetProxy.getWidget().getManipulator();
-      const normal = [0, 0, 0];
-      normal[axis] = 1;
-
-      // representation is in XYZ, not IJK, so slice is in world space
-      const position = normal.map((c) => c * slice);
-
-      // since normal points away from camera, have handle normal point
-      // towards camera so the paint widget can render the handle on top
-      // of the image.
-      manipulator.setUserNormal(normal);
-      manipulator.setUserOrigin(position);
-    },
-    toggleLock() {
-      if (this.lockToSlice === null) {
-        this.lockToSlice = Math.round(this.targetRepresentation.getSlice());
-      } else {
-        this.lockToSlice = null;
-      }
-      this.updateWidgetVisibility();
-    },
     updateWidgetVisibility() {
       const viewWidget = this.widgetProxy.getViewWidget(this.targetView);
       if (!viewWidget) {
         return;
       }
 
-      const slice = Math.round(this.targetRepresentation.getSlice());
-      viewWidget.setVisibility(
-        this.lockToSlice === null || this.lockToSlice === slice
-      );
+      viewWidget.setVisibility(true);
       this.renderViewWidgets();
     },
     remove() {
@@ -310,12 +249,12 @@ export default (toolName, extraComponent = {}) => ({
       const state = this.widgetProxy.getWidgetState();
       const data = {
         name: this.name,
-        lockToSlice: this.lockToSlice,
         points: state.getHandleList().map((handle) => handle.getOrigin()),
         color: this.color,
         textSize: this.textSize,
-        axis: this.targetView.getAxis(),
+        axis: null,
       };
+      console.log('saveData', data);
       this.$emit('saveData', data);
     },
     emitRemove() {
@@ -364,7 +303,6 @@ export default (toolName, extraComponent = {}) => ({
         :text-size="textSize"
         :measurements="displayedMeasurements"
         :labels="measurementLabels"
-        :toggle-lock="toggleLock"
         :remove="emitRemove"
         :set-name="setName"
         :set-color="setColor"

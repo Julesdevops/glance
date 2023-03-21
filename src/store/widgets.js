@@ -54,6 +54,7 @@ export default ({ proxyManager }) => ({
       if (!(datasetId in state.measurements)) {
         Vue.set(state.measurements, datasetId, []);
       }
+      console.log('store addMeasurementTool');
       state.measurements[datasetId].push({
         componentName,
         data,
