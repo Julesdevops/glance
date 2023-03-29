@@ -35,7 +35,6 @@ const AngleComponent = create2DTool('Angle', {
       return numberOfHandles === 3;
     },
     setupViewWidget(viewWidget) {
-      console.log('Settuping 2D angle vw');
       viewWidget.setCircleProps({
         'stroke-width': 3,
         fill: 'transparent',

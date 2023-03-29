@@ -151,7 +151,6 @@ export default (toolName, extraComponent = {}) => ({
       }
 
       const view3dHandler = (view, widgetManager, viewWidget) => {
-        console.log({ view, widgetManager, viewWidget });
         this.setupViewWidget(viewWidget);
         viewWidget.setVisibility(true);
 
